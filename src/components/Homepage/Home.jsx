@@ -4,7 +4,7 @@ import { SwiperSlide } from "swiper/react";
 import { useDispatch, useSelector } from "react-redux";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 
-import { homePageData } from "@/services/airtableAPI"; // <-- changed to Airtable
+import { homePageData } from "@/services/airtableAPI";
 import SongCard from "./SongCard";
 import SongCardSkeleton from "./SongCardSkeleton";
 import SongBar from "./SongBar";
@@ -14,7 +14,7 @@ import OnlineStatus from "./OnlineStatus";
 import ListenAgain from "./ListenAgain";
 
 const Home = () => {
-  const [data, setData] = useState("");
+  const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
   const { activeSong, isPlaying } = useSelector((state) => state.player);
@@ -30,8 +30,8 @@ const Home = () => {
   useEffect(() => {
     const fetchData = async () => {
       dispatch(setProgress(70));
-      const res = await homePageData(languages); // Airtable fetch
-      setData(res);
+      const res = await homePageData(languages);
+      setData(res || {});
       dispatch(setProgress(100));
       setLoading(false);
     };
@@ -42,7 +42,7 @@ const Home = () => {
     <div>
       <OnlineStatus />
       <h1 className="text-4xl font-bold mx-2 m-9 text-white flex gap-2">
-        "{salutation} <GiMusicalNotes />"
+        {salutation} <GiMusicalNotes />
       </h1>
 
       <ListenAgain />
@@ -51,14 +51,14 @@ const Home = () => {
       <SwiperLayout title={"Trending"}>
         {loading ? (
           <SongCardSkeleton />
+        ) : data?.trending?.songs?.length ? (
+          data.trending.songs.map((song) => (
+            <SwiperSlide key={song.id}>
+              <SongCard song={song} activeSong={activeSong} isPlaying={isPlaying} />
+            </SwiperSlide>
+          ))
         ) : (
-          <>
-            {data?.trending?.songs?.map((song) => (
-              <SwiperSlide key={song?.id}>
-                <SongCard song={song} activeSong={activeSong} isPlaying={isPlaying} />
-              </SwiperSlide>
-            ))}
-          </>
+          <p className="text-white">No trending songs available</p>
         )}
       </SwiperLayout>
 
@@ -67,40 +67,29 @@ const Home = () => {
         <h2 className="text-white mt-4 text-2xl lg:text-3xl font-semibold mb-4">Top Charts</h2>
         <div className="grid lg:grid-cols-2 gap-x-10 max-h-96 lg:max-h-full lg:overflow-y-auto overflow-y-scroll">
           {loading ? (
-            <div className="w-[90vw] overflow-x-hidden">
-              <SongCardSkeleton />
-            </div>
-          ) : (
-            data?.popular_songs?.songs?.slice(0, 10).map((playlist, index) => (
-              <SongBar key={playlist?.id} playlist={playlist} i={index} />
+            <SongCardSkeleton />
+          ) : data?.popular?.songs?.length ? (
+            data.popular.songs.slice(0, 10).map((song, index) => (
+              <SongBar key={song.id} playlist={song} i={index} />
             ))
+          ) : (
+            <p className="text-white col-span-2">No popular songs available</p>
           )}
         </div>
       </div>
-
-      {/* New Releases */}
-      <SwiperLayout title={"New Releases"}>
-        {loading ? (
-          <SongCardSkeleton />
-        ) : (
-          data?.sound_surge?.songs?.map((song) => (
-            <SwiperSlide key={song?.id}>
-              <SongCard song={song} activeSong={activeSong} isPlaying={isPlaying} />
-            </SwiperSlide>
-          ))
-        )}
-      </SwiperLayout>
 
       {/* Featured Playlists */}
       <SwiperLayout title={"Featured Playlists"}>
         {loading ? (
           <SongCardSkeleton />
-        ) : (
-          data?.featured?.songs?.map((song) => (
-            <SwiperSlide key={song?.id}>
+        ) : data?.featured?.songs?.length ? (
+          data.featured.songs.map((song) => (
+            <SwiperSlide key={song.id}>
               <SongCard song={song} activeSong={activeSong} isPlaying={isPlaying} />
             </SwiperSlide>
           ))
+        ) : (
+          <p className="text-white">No featured songs available</p>
         )}
       </SwiperLayout>
     </div>
