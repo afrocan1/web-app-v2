@@ -1,12 +1,10 @@
 // services/airtableAPI.js
-const AIRTABLE_BASE = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID; // Must have NEXT_PUBLIC_ prefix!
+const AIRTABLE_BASE = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 const AIRTABLE_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
 
 const TRACKS_TABLE = "Tracks";
 
-// Helper function to fetch from Airtable
 async function fetchTracks(filterFormula = "") {
-  // Fallback to hardcoded values if env vars are missing (for debugging)
   const baseId = AIRTABLE_BASE || "apptYXI5JrJp9MwfE";
   const apiKey = AIRTABLE_KEY || "patehy7F0F8nHj77H.28281492f4dcfc52b9f71b8a271635a586b1652760bd40bcd157bbbf3a478d8d";
 
@@ -21,7 +19,7 @@ async function fetchTracks(filterFormula = "") {
       url += `&filterByFormula=${encodeURIComponent(filterFormula)}`;
     }
 
-    console.log("🔍 Fetching from Airtable:", url);
+    console.log("🔍 Fetching from Airtable:", filterFormula || "all records");
 
     const res = await fetch(url, {
       headers: {
@@ -37,63 +35,85 @@ async function fetchTracks(filterFormula = "") {
     const json = await res.json();
     
     if (!json.records || json.records.length === 0) {
-      console.warn("⚠️ No records found in Airtable response", json);
+      console.warn("⚠️ No records found for filter:", filterFormula);
       return [];
     }
 
     console.log(`✅ Found ${json.records.length} records for filter: ${filterFormula}`);
 
-    return json.records.map((r) => ({
-      id: r.id,
-      name: r.fields.Title,
-      artists: [{ name: r.fields.Artist }],
-      audioUrl: r.fields.Audio_url,
-      image: [{ url: r.fields.Cover_url }],
-      duration: r.fields.Duration,
-      section: r.fields.Section,
-    }));
+    // Transform to match Player component expectations
+    return json.records.map((r) => {
+      const fields = r.fields;
+      
+      return {
+        id: r.id,
+        name: fields.Title || "Unknown Title",
+        artists: [{ name: fields.Artist || "Unknown Artist" }],
+        primaryArtists: fields.Artist || "Unknown Artist",
+        
+        // Audio URL structure that Player expects
+        downloadUrl: [
+          { url: fields.Audio_url },
+          { url: fields.Audio_url },
+          { url: fields.Audio_url },
+          { url: fields.Audio_url },
+          { url: fields.Audio_url }, // index 4 that Player uses
+        ],
+        
+        // Image URL structure that Player expects
+        image: [
+          { url: fields.Cover_url },
+          { url: fields.Cover_url },
+          { url: fields.Cover_url }, // index 2 for media session
+        ],
+        
+        // Additional fields
+        album: { name: fields.Album || "Single" },
+        duration: fields.Duration || "0:00",
+        section: fields.Section,
+        
+        // Raw fields for easy access
+        audioUrl: fields.Audio_url,
+        coverUrl: fields.Cover_url,
+      };
+    });
   } catch (err) {
     console.error("❌ Airtable fetch error:", err);
     return [];
   }
 }
 
-// Get songs by section
 export async function getSongsBySection(sectionName) {
   const formula = `{Section}="${sectionName}"`;
   return await fetchTracks(formula);
 }
 
-// Get all songs
 export async function getAllSongs() {
   return await fetchTracks();
 }
 
-// Get a single song by ID
 export async function getSongById(id) {
   const formula = `RECORD_ID()="${id}"`;
   const songs = await fetchTracks(formula);
   return songs[0] || null;
 }
 
-// Replacement for homePageData - matching your Home.jsx structure
 export async function homePageData() {
   try {
     console.log("📡 Fetching homepage data from Airtable...");
 
-    // Fetch all sections in parallel
     const [featured, trending, popular, newReleases] = await Promise.all([
       getSongsBySection("Featured"),
       getSongsBySection("Trending"),
       getSongsBySection("Popular"),
-      getSongsBySection("New Releases"), // or use "Featured" if this doesn't exist
+      getSongsBySection("New Releases"),
     ]);
 
     const data = {
       featured: { songs: featured },
       trending: { songs: trending },
-      popular_songs: { songs: popular }, // Match Home.jsx expectation
-      sound_surge: { songs: newReleases.length > 0 ? newReleases : featured }, // Fallback to featured
+      popular_songs: { songs: popular },
+      sound_surge: { songs: newReleases.length > 0 ? newReleases : featured },
     };
 
     console.log("✅ Homepage data loaded:", {
