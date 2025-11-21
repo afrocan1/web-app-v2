@@ -21,7 +21,7 @@ const Player = ({
 
   // Get audio URL - support multiple formats
   const getAudioUrl = () => {
-    if (!activeSong) return "";
+    if (!activeSong || !activeSong.name) return ""; // Check if activeSong exists and has data
     
     // Try different possible audio URL locations
     return (
@@ -49,7 +49,7 @@ const Player = ({
 
   // Media session metadata
   const getMediaMetadata = () => {
-    if (!activeSong?.name) return {};
+    if (!activeSong?.name) return null;
 
     const coverUrl = 
       activeSong.coverUrl || 
@@ -75,18 +75,20 @@ const Player = ({
   useEffect(() => {
     if ("mediaSession" in navigator && activeSong?.name) {
       const metadata = getMediaMetadata();
-      navigator.mediaSession.metadata = new window.MediaMetadata(metadata);
+      if (metadata) {
+        navigator.mediaSession.metadata = new window.MediaMetadata(metadata);
 
-      navigator.mediaSession.setActionHandler("play", handlePlayPause);
-      navigator.mediaSession.setActionHandler("pause", handlePlayPause);
-      navigator.mediaSession.setActionHandler("previoustrack", handlePrevSong);
-      navigator.mediaSession.setActionHandler("nexttrack", handleNextSong);
-      navigator.mediaSession.setActionHandler("seekbackward", () => {
-        setSeekTime(Math.max(0, appTime - 5));
-      });
-      navigator.mediaSession.setActionHandler("seekforward", () => {
-        setSeekTime(appTime + 5);
-      });
+        navigator.mediaSession.setActionHandler("play", handlePlayPause);
+        navigator.mediaSession.setActionHandler("pause", handlePlayPause);
+        navigator.mediaSession.setActionHandler("previoustrack", handlePrevSong);
+        navigator.mediaSession.setActionHandler("nexttrack", handleNextSong);
+        navigator.mediaSession.setActionHandler("seekbackward", () => {
+          setSeekTime(Math.max(0, appTime - 5));
+        });
+        navigator.mediaSession.setActionHandler("seekforward", () => {
+          setSeekTime(appTime + 5);
+        });
+      }
     }
   }, [activeSong, handlePlayPause, handlePrevSong, handleNextSong, appTime, setSeekTime]);
 
@@ -104,15 +106,19 @@ const Player = ({
     }
   }, [seekTime]);
 
-  // Debug log
+  // Debug log - only when activeSong changes
   useEffect(() => {
-    if (audioUrl) {
+    if (activeSong?.name) {
       console.log("🎵 Now playing:", activeSong?.name, "URL:", audioUrl);
     }
-  }, [audioUrl, activeSong]);
+  }, [activeSong?.name]);
 
-  if (!audioUrl) {
-    console.warn("⚠️ No audio URL found for song:", activeSong?.name);
+  // Don't render audio element if there's no song or URL
+  if (!activeSong?.name || !audioUrl) {
+    // Only warn if we actually have a song but no URL
+    if (activeSong?.name && !audioUrl) {
+      console.warn("⚠️ No audio URL found for song:", activeSong?.name);
+    }
     return null;
   }
 
@@ -127,6 +133,7 @@ const Player = ({
       onError={(e) => {
         console.error("❌ Audio error:", e.target.error);
         console.error("❌ Failed URL:", audioUrl);
+        console.error("❌ Song:", activeSong?.name);
       }}
     />
   );
