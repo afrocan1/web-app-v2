@@ -1,13 +1,14 @@
 // services/airtableAPI.js
-const AIRTABLE_BASE = process.env.AIRTABLE_BASE_ID;
-const AIRTABLE_KEY = process.env.AIRTABLE_API_KEY;
+const AIRTABLE_BASE = process.env.AIRTABLE_BASE_ID; // e.g., apptYXI5JrJp9MwfE
+const AIRTABLE_KEY = process.env.AIRTABLE_API_KEY;  // your Airtable API key
+const AIRTABLE_TABLE = "tblEgdLq0S9IBrUYh";         // your table ID
 
 // -----------------------------
 // Helper function to fetch from Airtable
 // -----------------------------
-async function fetchFromAirtable(table, filterFormula = "") {
+async function fetchFromAirtable(filterFormula = "") {
   try {
-    let url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${table}?pageSize=50`;
+    let url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_TABLE}?pageSize=50`;
     if (filterFormula) {
       url += `&filterByFormula=${encodeURIComponent(filterFormula)}`;
     }
@@ -19,6 +20,11 @@ async function fetchFromAirtable(table, filterFormula = "") {
     });
 
     const json = await res.json();
+
+    if (!json.records) {
+      console.error("No records found in Airtable response", json);
+      return [];
+    }
 
     // Map Airtable fields to your component-friendly format
     return json.records.map((r) => ({
@@ -41,14 +47,14 @@ async function fetchFromAirtable(table, filterFormula = "") {
 // -----------------------------
 export async function getSongsBySection(sectionName) {
   const formula = `{Section}="${sectionName}"`;
-  return await fetchFromAirtable("Songs", formula);
+  return await fetchFromAirtable(formula);
 }
 
 // -----------------------------
 // Get all songs
 // -----------------------------
 export async function getAllSongs() {
-  return await fetchFromAirtable("Songs");
+  return await fetchFromAirtable();
 }
 
 // -----------------------------
@@ -56,7 +62,7 @@ export async function getAllSongs() {
 // -----------------------------
 export async function getSongById(id) {
   const formula = `RECORD_ID()="${id}"`;
-  const songs = await fetchFromAirtable("Songs", formula);
+  const songs = await fetchFromAirtable(formula);
   return songs[0] || null;
 }
 
@@ -66,7 +72,6 @@ export async function getSongById(id) {
 // -----------------------------
 export async function homePageData(language) {
   try {
-    // List all sections you want on the homepage
     const sections = [
       "Trending",
       "Featured",
